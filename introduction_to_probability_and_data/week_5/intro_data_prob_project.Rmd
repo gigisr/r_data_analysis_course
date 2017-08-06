@@ -1,0 +1,447 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+* * *
+
+I am loading the `tidyverse` library, it contains ggplot2 as well as dplyr and some other useful libraries. You can find more information on it <a href="http://tidyverse.org/">here</a>. 
+
+```{r load-packages, message = FALSE, warning = FALSE}
+library( tidyverse )
+```
+
+### Load data
+
+* * *
+
+I am loading the data set but am also converting it to `tibble` format. The `tibble` format is a more up to date form of the `data.frame`.
+
+```{r load-data}
+load( "brfss2013.RData" )
+brfss2013 <- brfss2013 %>% 
+    as.tibble
+```
+
+## Part 1: Data
+
+* * *
+
+How was the data collected. Is it generalisable to a whole population? 
+
+The Behavioral Risk Factor Surveillance System (BRFSS) is a survey conducted in US territories on aged 18 and over adults that are not institutionalised. The aim is to investigate health related knowledge and actions taken by the person being surveyed, as well as links to health issues such as chronic diseases, physical injuries, and preventable infections.
+
+In most US territories the survey is conducted annually with the others occurring at fixed time intervals. The calls are made to both landlines and cellular phones and are made 7 days a week in the daytime and the evening. For the landline calls an adult in the household is randomly selected, for cellular calls individuals are contacted and they indicate that they live in a private residence or college housing.
+
+A computer system randomly selects telephone numbers. For most US territories a disproportionate stratified sampling method is used, but some use a simple random sampling design. We also have to be careful about various forms of bias. Beacuse of how the survey is conducted it would be very easy for individuals to choose not to respond or for the callers to not be available at the time they are called.
+
+There is a potential overlap in participants where people have a landline and a cellular phone. Once it was realised that a significant proportion of households didn't have a landline the sampling design was adapted to account for cellular numbers and a weighting applied to counter the overlap in participants.
+
+The data is prospective observational data, where data is collected throughout the study and treatments aren't prescribed to the experimental units. This also means that any results can't prove causal links between variables. The random sampling of the participants means that conclusions can be generalised to the whole population.
+
+## Part 2: Research questions
+
+* * *
+
+**Research quesion 1:**
+
+Sleep is a factor that I believe is often not thought about when looking at overall health, but I think it potentially can be the biggest factor. Someone who is very tired is more likely to notice if they aren't feeling quite right.
+
+It would also be good to look at if there is a stronger correlation between lack of sleep and poor physical or poor mental health, so this will be my question.
+
+**Research quesion 2:**
+
+As there are many differences between states it would be interesting to see if there is a correlation between the state lived in and the quality of sleep for the participant. If I find that there is a correlation between the two it would then be good to identify if there are specific differences between states that accounts for this.
+
+So, is there an indication that state and sleep quality are correlated, is my question.
+
+**Research quesion 3:**
+
+When you are younger individuals who exercise a lot tend to also eat and drink huge amounts of unhealthy food, because the exercise balances it out so they can. It would be interesting to see if this behaviour carries on into adults or if the reduced metabolism means that people who exercise a lot are also healthy in what they eat.
+
+So my question is, an investigation for a correlation between unhealthy eating or drinking habits and exercising.
+
+## Part 3: Exploratory data analysis
+
+* * *
+
+**Research quesion 1:**
+
+```{r}
+brfss2013 %>% 
+    select( physhlth, menthlth, sleptim1 )
+```
+
+Having looked at the values in columns `physhlth`, `menthlth`, and `sleptim1` I see that there are some values that are invalid for my purposes, such as values greater than 30 in `physhlth`, or null. These are not relevant to my question so I will filter the data set to remove these.
+
+```{r}
+brfss2013 %>% 
+    select( physhlth ) %>% 
+    unique %>% 
+    .[[1]]
+
+brfss2013 %>% 
+    select( menthlth ) %>% 
+    unique %>% 
+    .[[1]]
+
+brfss2013 %>% 
+    select( sleptim1 ) %>% 
+    unique %>% 
+    .[[1]]
+```
+
+```{r}
+q1_data <- brfss2013 %>% 
+    select( physhlth, menthlth, sleptim1 ) %>% 
+    filter( !is.na( physhlth ), !is.na( menthlth ), !is.na( sleptim1 ), physhlth < 31, menthlth < 31, sleptim1 < 25 )
+```
+
+A historgram will give a reasonable view of the distribution of values.
+
+```{r}
+ggplot( data = q1_data ) +
+    geom_histogram( aes( x = physhlth ), stat = "count" )
+
+ggplot( data = q1_data ) +
+    geom_histogram( aes( x = menthlth ), stat = "count" )
+
+ggplot( data = q1_data ) +
+    geom_histogram( aes( x = sleptim1 ), stat = "count" )
+```
+
+The histograms of `phyhlth` and `menthlth` are incredibly similar in overall shape. There are more people reporting that they have bad physical health days than bad mental health days.
+
+```{r}
+q1_data %>% 
+    mutate( new_physhlth = ifelse( physhlth == 0, "No", "Yes" ) ) %>% 
+    group_by( new_physhlth ) %>% 
+    summarise( count = n() )
+
+q1_data %>% 
+    mutate( new_menthlth = ifelse( menthlth == 0, "No", "Yes" ) ) %>% 
+    group_by( new_menthlth ) %>% 
+    summarise( count = n() )
+```
+
+Looking at some basic statistics can give us more of a feel for the distributions.
+
+```{r}
+q1_data %>% 
+    summarise( min = min( physhlth ), max = max( physhlth ), mean = mean( physhlth ), meidan = median( physhlth ), sd = sd( physhlth ) )
+
+q1_data %>% 
+    summarise( min = min( menthlth ), max = max( menthlth ), mean = mean( menthlth ), median = median( menthlth ), sd = sd( menthlth ) )
+
+q1_data %>% 
+    summarise( min = min( sleptim1 ), max = max( sleptim1 ), mean = mean( sleptim1 ), median = median( sleptim1 ), sd = sd( sleptim1 ) )
+```
+
+I think there are a lot of individual values in each vairable, so I am going to categorise them reasonably.
+
+The number of hours slept can be easily split into 3 categories, 'enough', 'too little', 'too much'.
+
+```{r}
+q1_data <- q1_data %>% 
+    mutate(
+        cat_sleptim1 = ifelse( sleptim1 <= 5, 'too little', ifelse( sleptim1 >= 11, 'too much', 'enough' ) )
+    )
+```
+
+The number of days that pyhsical or mental health is not good we can categorise as 'none', '1-19', '20-30'.
+
+```{r}
+q1_data <- q1_data %>% 
+    mutate(
+        cat_physhlth = ifelse( physhlth == 0, 'none', ifelse( physhlth >= 20, '20-30', '1-19' ) ),
+        cat_menthlth = ifelse( menthlth == 0, 'none', ifelse( menthlth >= 20, '20-30', '1-19' ) )
+    )
+```
+
+we can then look at the proportions of each value in each variable.
+
+```{r}
+q1_data %>% 
+    group_by( cat_sleptim1 ) %>% 
+    summarise( count = n() ) %>% 
+    mutate(
+        pct = round( count * 100 / sum( count ), 2 )
+    )
+
+q1_data %>% 
+    group_by( cat_physhlth ) %>% 
+    summarise( count = n() ) %>% 
+    mutate(
+        pct = round( count * 100 / sum( count ), 2 )
+    )
+
+q1_data %>% 
+    group_by( cat_menthlth ) %>% 
+    summarise( count = n() ) %>% 
+    mutate(
+        pct = round( count * 100 / sum( count ), 2 )
+    )
+```
+
+And look at the stats by these new categories.
+
+```{r}
+q1_data %>% 
+    group_by( cat_sleptim1 ) %>% 
+    summarise( min = min( physhlth ), max = max( physhlth ), mean = mean( physhlth ), median = median( physhlth ), sd = sd( physhlth ) )
+
+q1_data %>% 
+    group_by( cat_sleptim1 ) %>% 
+    summarise( min = min( menthlth ), max = max( menthlth ), mean = mean( menthlth ), median = median( menthlth ), sd = sd( menthlth ) )
+```
+
+These stats, grouped by the sleeping categories, indicates that individuals who get enough sleep have better self reported physical and mental health. This is shown by the lower mean, median, and standard deviation.
+
+**Research quesion 2:**
+
+When trying to look at the columns `_state` and `sleptim1`, column names from the data codebook, an error occured indicating that the column `_state` doesn't exist. So we look for any columns containing the string '_state' which will probably be the correct one.
+
+```{r}
+brfss2013 %>% 
+    names %>% 
+    grep( "_state", ., value = TRUE )
+```
+
+Means the column is actually `X_state`
+
+```{r}
+brfss2013 %>% 
+    select( X_state, sleptim1 )
+```
+
+Having a look at the values in the columns there are some that are not relevant for my investigation, so I will filter these out.
+
+```{r}
+brfss2013 %>% 
+    select( X_state ) %>% 
+    unique %>% 
+    .[[1]] %>% 
+    sort
+
+brfss2013 %>% 
+    select( sleptim1 ) %>% 
+    unique %>% 
+    .[[1]]
+```
+
+We want our data for this question to be relevant so we subset it and filter.
+
+```{r}
+q2_data <- brfss2013 %>% 
+    select( X_state, sleptim1 ) %>% 
+    filter( X_state != "80", X_state != "0", !is.na( sleptim1 ), sleptim1 < 25 )
+```
+
+By looking at a histogram of counts we can get a good visual view of the distributions of the variables.
+
+```{r}
+ggplot( data = q2_data ) +
+    geom_histogram( aes( x = sleptim1 ), stat = "count" )
+
+ggplot( data = q2_data ) +
+    geom_histogram( aes( x = X_state ), stat = 'count' ) +
+    theme( axis.text.x = element_text( angle = 90, hjust = 1, vjust = 0.5 ) )
+```
+
+I will use the same categorisation of the amount of sleep the respondant is getting.
+
+```{r}
+q2_data <- q2_data %>% 
+    mutate(
+        cat_sleptim1 = ifelse( sleptim1 <= 5, 'too little', ifelse( sleptim1 >= 11, 'too much', 'enough' ) )
+    )
+```
+
+And then we can look at the counts of each variable and each combination of variables.
+
+```{r}
+q2_data %>% 
+    group_by( X_state ) %>% 
+    summarise( count = n() ) %>% 
+    mutate(
+        pct = count * 100 / sum( count )
+    ) %>% 
+    arrange( -count )
+```
+
+```{r}
+q2_summary_tbl <- q2_data %>% 
+    group_by( X_state, cat_sleptim1 ) %>% 
+    summarise( count = n() ) %>% 
+    mutate(
+        pct = round( count * 100 / sum( count ), 2 )
+    )
+
+q2_summary_tbl
+```
+
+We can then look for states where the proportion of people getting 'enough', 'too little', or 'too much' sleep is particularly high.
+
+```{r}
+q2_summary_tbl %>% 
+    filter( cat_sleptim1 == "enough" ) %>% 
+    .['pct'] %>% 
+    min
+
+q2_summary_tbl %>% 
+    filter( cat_sleptim1 == "enough" ) %>% 
+    .['pct'] %>% 
+    max
+
+q2_summary_tbl %>% 
+    filter( cat_sleptim1 == "enough", pct > 90.5 )
+
+q2_summary_tbl %>% 
+    filter( cat_sleptim1 == "too little" ) %>% 
+    .['pct'] %>% 
+    min
+
+q2_summary_tbl %>% 
+    filter( cat_sleptim1 == "too little" ) %>% 
+    .['pct'] %>% 
+    max
+
+q2_summary_tbl %>% 
+    filter( cat_sleptim1 == "too little", pct > 13.5 )
+
+q2_summary_tbl %>% 
+    filter( cat_sleptim1 == "too much" ) %>% 
+    .['pct'] %>% 
+    min
+
+q2_summary_tbl %>% 
+    filter( cat_sleptim1 == "too much" ) %>% 
+    .['pct'] %>% 
+    max
+
+q2_summary_tbl %>% 
+    filter( cat_sleptim1 == "too much", pct > 1.75 )
+```
+
+I don't know enough about US territories to try to pick out differences in them that could cause these differences in sleep category proportions but I can see that there are some big differences in the proportions.
+
+**Research quesion 3:**
+
+Have a quick look at the variables I am interested in for this question.
+
+```{r}
+brfss2013 %>% 
+    select( exerany2, fruit1, genhlth, alcday5 )
+```
+
+```{r}
+brfss2013 %>% 
+    select( exerany2 ) %>% 
+    unique %>% 
+    .[[1]]
+
+brfss2013 %>% 
+    select( fruit1 ) %>% 
+    unique %>% 
+    .[[1]] %>% 
+    sort
+
+brfss2013 %>% 
+    select( genhlth ) %>% 
+    unique %>% 
+    .[[1]]
+
+brfss2013 %>% 
+    select( alcday5 ) %>% 
+    unique %>% 
+    .[[1]] %>% 
+    sort
+```
+
+Based of the values in the codebook that we are expecting in this column, filter out the nulls and invalid values for our question data set.
+
+```{r}
+q3_data <- brfss2013 %>% 
+    select( exerany2, fruit1, genhlth, alcday5 ) %>% 
+    filter( !is.na( exerany2 ), !is.na( fruit1 ), !is.na( genhlth ), !is.na( alcday5 ), alcday5 == 0 | alcday5 > 99 | alcday5 < 300, fruit1 < 400, fruit1 > 100 | fruit1 == 0 )
+```
+
+Categorise the variables.
+
+```{r}
+q3_data <- q3_data %>% 
+    mutate(
+        cat_fruit1 = ifelse( fruit1 == 0 | fruit1 == 300, "rarely", ifelse( fruit1 < 200, "daily", ifelse( fruit1 < 300, "weekly", "monthly" ) ) ),
+        cat_alcday5 = ifelse( alcday5 > 100 & alcday5 < 200, ( alcday5 - 100 ) * 4, ifelse( alcday5 > 200 & alcday5 < 300, alcday5 - 200, alcday5 ) ),
+        cat_alcday5 = ifelse( cat_alcday5 == 0, "never", ifelse( cat_alcday5 < 11, "1-10", "11-30" ) )
+    )
+```
+
+Have a quick look at the counts of combinations of the variables.
+
+```{r}
+q3_data %>% 
+    group_by( exerany2 ) %>% 
+    summarise( count = n() ) %>% 
+    mutate(
+        pct = count * 100 / sum( count )
+    ) %>% 
+    arrange( -count )
+
+q3_data %>% 
+    group_by( cat_fruit1 ) %>% 
+    summarise( count = n() ) %>% 
+    mutate(
+        pct = count * 100 / sum( count )
+    ) %>% 
+    arrange( -count )
+
+q3_data %>% 
+    group_by( genhlth ) %>% 
+    summarise( count = n() ) %>% 
+    mutate(
+        pct = count * 100 / sum( count )
+    ) %>% 
+    arrange( -count )
+
+q3_data %>% 
+    group_by( cat_alcday5 ) %>% 
+    summarise( count = n() ) %>% 
+    mutate(
+        pct = count * 100 / sum( count )
+    ) %>% 
+    arrange( -count )
+```
+
+```{r}
+q3_data %>% 
+    group_by( exerany2, cat_fruit1 ) %>% 
+    summarise( count = n() ) %>% 
+    mutate(
+        pct = round( count * 100 / sum( count ), 2 )
+    )
+
+q3_data %>% 
+    group_by( exerany2, genhlth ) %>% 
+    summarise( count = n() ) %>% 
+    mutate(
+        pct = round( count * 100 / sum( count ), 2 )
+    )
+
+q3_data %>% 
+    group_by( exerany2, cat_alcday5 ) %>% 
+    summarise( count = n() ) %>% 
+    mutate(
+        pct = round( count * 100 / sum( count ), 2 )
+    )
+```
+
+From the summaries of `exreany2` against each other variable we can see that people who exercise seem to drink more alcohol and have a more positive self assessment of their overall health. 
