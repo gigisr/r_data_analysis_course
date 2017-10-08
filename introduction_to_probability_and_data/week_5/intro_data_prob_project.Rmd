@@ -75,6 +75,8 @@ So my question is, an investigation for a correlation between unhealthy eating o
 
 **Research quesion 1:**
 
+Have a look at the variables relevant to the question.
+
 ```{r}
 brfss2013 %>% 
     select( physhlth, menthlth, sleptim1 )
@@ -97,15 +99,13 @@ brfss2013 %>%
     select( sleptim1 ) %>% 
     unique %>% 
     .[[1]]
-```
 
-```{r}
 q1_data <- brfss2013 %>% 
     select( physhlth, menthlth, sleptim1 ) %>% 
     filter( !is.na( physhlth ), !is.na( menthlth ), !is.na( sleptim1 ), physhlth < 31, menthlth < 31, sleptim1 < 25 )
 ```
 
-A historgram will give a reasonable view of the distribution of values.
+Historgrams will give a reasonable view of the distribution of values.
 
 ```{r}
 ggplot( data = q1_data ) +
@@ -120,18 +120,6 @@ ggplot( data = q1_data ) +
 
 The histograms of `phyhlth` and `menthlth` are incredibly similar in overall shape. There are more people reporting that they have bad physical health days than bad mental health days.
 
-```{r}
-q1_data %>% 
-    mutate( new_physhlth = ifelse( physhlth == 0, "No", "Yes" ) ) %>% 
-    group_by( new_physhlth ) %>% 
-    summarise( count = n() )
-
-q1_data %>% 
-    mutate( new_menthlth = ifelse( menthlth == 0, "No", "Yes" ) ) %>% 
-    group_by( new_menthlth ) %>% 
-    summarise( count = n() )
-```
-
 Looking at some basic statistics can give us more of a feel for the distributions.
 
 ```{r}
@@ -145,7 +133,7 @@ q1_data %>%
     summarise( min = min( sleptim1 ), max = max( sleptim1 ), mean = mean( sleptim1 ), median = median( sleptim1 ), sd = sd( sleptim1 ) )
 ```
 
-I think there are a lot of individual values in each vairable, so I am going to categorise them reasonably.
+I think there are a lot of unique values in each vairable, so I am going to categorise them reasonably.
 
 The number of hours slept can be easily split into 3 categories, 'enough', 'too little', 'too much'.
 
@@ -166,7 +154,7 @@ q1_data <- q1_data %>%
     )
 ```
 
-we can then look at the proportions of each value in each variable.
+We can then look at the proportions of each value in each variable.
 
 ```{r}
 q1_data %>% 
@@ -222,7 +210,7 @@ brfss2013 %>%
     select( X_state, sleptim1 )
 ```
 
-Having a look at the values in the columns there are some that are not relevant for my investigation, so I will filter these out.
+Having a look at the values in the columns there are some that are not relevant for my investigation, so I will filter these out along with any null values.
 
 ```{r}
 brfss2013 %>% 
@@ -235,17 +223,13 @@ brfss2013 %>%
     select( sleptim1 ) %>% 
     unique %>% 
     .[[1]]
-```
 
-We want our data for this question to be relevant so we subset it and filter.
-
-```{r}
 q2_data <- brfss2013 %>% 
     select( X_state, sleptim1 ) %>% 
     filter( X_state != "80", X_state != "0", !is.na( sleptim1 ), sleptim1 < 25 )
 ```
 
-By looking at a histogram of counts we can get a good visual view of the distributions of the variables.
+By looking at histograms of counts we can get a good visual view of the distributions of the variables.
 
 ```{r}
 ggplot( data = q2_data ) +
@@ -256,7 +240,7 @@ ggplot( data = q2_data ) +
     theme( axis.text.x = element_text( angle = 90, hjust = 1, vjust = 0.5 ) )
 ```
 
-I will use the same categorisation of the amount of sleep the respondant is getting.
+We will use the same categorisation of the amount of sleep the respondant is getting.
 
 ```{r}
 q2_data <- q2_data %>% 
@@ -265,17 +249,7 @@ q2_data <- q2_data %>%
     )
 ```
 
-And then we can look at the counts of each variable and each combination of variables.
-
-```{r}
-q2_data %>% 
-    group_by( X_state ) %>% 
-    summarise( count = n() ) %>% 
-    mutate(
-        pct = count * 100 / sum( count )
-    ) %>% 
-    arrange( -count )
-```
+And then we can look at the counts of the variables.
 
 ```{r}
 q2_summary_tbl <- q2_data %>% 
@@ -288,7 +262,7 @@ q2_summary_tbl <- q2_data %>%
 q2_summary_tbl
 ```
 
-We can then look for states where the proportion of people getting 'enough', 'too little', or 'too much' sleep is particularly high.
+We can then look for states where the proportion of people getting 'enough', 'too little', or 'too much' sleep is particularly high. Will also print out the min and max percentage to give context.
 
 ```{r}
 q2_summary_tbl %>% 
@@ -331,16 +305,18 @@ q2_summary_tbl %>%
     filter( cat_sleptim1 == "too much", pct > 1.75 )
 ```
 
-I don't know enough about US territories to try to pick out differences in them that could cause these differences in sleep category proportions but I can see that there are some big differences in the proportions.
+I don't know enough about US territories to try to pick out differences in them that could cause these differences in sleep category proportions but I can see that there are some big differences in the proportions. These suggest that some US territories do have more people getting a certain category of sleep than other US territories, for example, Colorado has the highest proportion of respondants getting 'enough' sleep.
 
 **Research quesion 3:**
 
-Have a quick look at the variables I am interested in for this question.
+Have a quick look at the variables for this question.
 
 ```{r}
 brfss2013 %>% 
     select( exerany2, fruit1, genhlth, alcday5 )
 ```
+
+Check out the unique values from each variable to check if they are valid.
 
 ```{r}
 brfss2013 %>% 
@@ -397,32 +373,6 @@ q3_data %>%
     arrange( -count )
 
 q3_data %>% 
-    group_by( cat_fruit1 ) %>% 
-    summarise( count = n() ) %>% 
-    mutate(
-        pct = count * 100 / sum( count )
-    ) %>% 
-    arrange( -count )
-
-q3_data %>% 
-    group_by( genhlth ) %>% 
-    summarise( count = n() ) %>% 
-    mutate(
-        pct = count * 100 / sum( count )
-    ) %>% 
-    arrange( -count )
-
-q3_data %>% 
-    group_by( cat_alcday5 ) %>% 
-    summarise( count = n() ) %>% 
-    mutate(
-        pct = count * 100 / sum( count )
-    ) %>% 
-    arrange( -count )
-```
-
-```{r}
-q3_data %>% 
     group_by( exerany2, cat_fruit1 ) %>% 
     summarise( count = n() ) %>% 
     mutate(
@@ -444,4 +394,4 @@ q3_data %>%
     )
 ```
 
-From the summaries of `exreany2` against each other variable we can see that people who exercise seem to drink more alcohol and have a more positive self assessment of their overall health. 
+From the summaries of `exreany2`, the 'Yes' or 'No' indicator of if the respondant exercises, against each other variable we can see that people who exercise seem to drink more alcohol and have a more positive self assessment of their overall health. 
